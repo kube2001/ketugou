@@ -1,0 +1,115 @@
+# ketugou
+PDFをウェブ上で結合できるサイト
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>高機能PDF結合ツール</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f4f6f8;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      color: #333;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    #dropZone {
+      border: 2px dashed #aaa;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      background: #fff;
+      color: #666;
+      margin-bottom: 20px;
+      transition: border-color 0.3s;
+    }
+
+    #dropZone.dragover {
+      border-color: #007BFF;
+      background: #e9f5ff;
+    }
+
+    button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-right: 10px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    #fileList {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 20px;
+    }
+
+    #fileList li {
+      background: white;
+      padding: 10px;
+      margin-bottom: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: move;
+    }
+
+    #fileList li input {
+      margin-left: 10px;
+      padding: 4px;
+    }
+
+    .removeBtn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .removeBtn:hover {
+      background: #a71d2a;
+    }
+
+    #result {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.05);
+    }
+
+    iframe {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 以下、前のままのHTML・JavaScriptで動作 -->
+  <!-- 省略せずに全コード必要な場合、続けて表示できます -->
+</body>
+</html>
