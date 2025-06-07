@@ -1,11 +1,9 @@
-# ketugou
-PDFをウェブ上で結合できるサイト
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <title>高機能PDF結合ツール</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <style>
     body {
@@ -19,7 +17,6 @@ PDFをウェブ上で結合できるサイト
 
     h2 {
       text-align: center;
-      color: #333;
     }
 
     #dropZone {
@@ -34,18 +31,18 @@ PDFをウェブ上で結合できるサイト
     }
 
     #dropZone.dragover {
-      border-color: #007BFF;
+      border-color: #007bff;
       background: #e9f5ff;
     }
 
     button {
-      background: #007BFF;
-      color: white;
+      background: #007bff;
+      color: #fff;
       border: none;
       padding: 10px 16px;
       border-radius: 6px;
       cursor: pointer;
-      margin-right: 10px;
+      margin: 10px 5px 20px 0;
       transition: background 0.3s;
     }
 
@@ -60,7 +57,7 @@ PDFをウェブ上で結合できるサイト
     }
 
     #fileList li {
-      background: white;
+      background: #fff;
       padding: 10px;
       margin-bottom: 8px;
       border: 1px solid #ddd;
@@ -97,19 +94,186 @@ PDFをウェブ上で結合できるサイト
     }
 
     iframe {
+      width: 100%;
+      height: 500px;
       border: 1px solid #ccc;
       border-radius: 4px;
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 10px;
-      }
     }
   </style>
 </head>
 <body>
-  <!-- 以下、前のままのHTML・JavaScriptで動作 -->
-  <!-- 省略せずに全コード必要な場合、続けて表示できます -->
+
+  <h2>高機能PDF結合ツール</h2>
+
+  <div id="dropZone">ここにPDFファイルをドラッグ＆ドロップ、または下のボタンで選択</div>
+  <input type="file" id="fileInput" accept="application/pdf" multiple hidden />
+  <button id="selectFilesBtn">ファイルを選択</button>
+  <button id="mergeBtn">PDFを結合する</button>
+  <button id="resetBtn">リセット</button>
+
+  <ul id="fileList"></ul>
+  <div id="result"></div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const selectFilesBtn = document.getElementById('selectFilesBtn');
+    const mergeBtn = document.getElementById('mergeBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const fileList = document.getElementById('fileList');
+    const resultDiv = document.getElementById('result');
+
+    let filesArray = [];
+
+    // ファイルリストを画面に表示
+    function renderFileList() {
+      fileList.innerHTML = '';
+      filesArray.forEach((fileObj, index) => {
+        const li = document.createElement('li');
+        li.draggable = true;
+        li.dataset.index = index;
+        li.innerHTML = `
+          <span>${fileObj.file.name}</span>
+          <label>ページ範囲 <input type="text" class="pageRange" placeholder="例: 1-3" /></label>
+          <button class="removeBtn">×</button>
+        `;
+        fileList.appendChild(li);
+      });
+    }
+
+    // ファイル追加
+    function addFiles(newFiles) {
+      for (const file of newFiles) {
+        if (file.type === 'application/pdf') {
+          filesArray.push({ file, pageRange: null });
+        }
+      }
+      renderFileList();
+    }
+
+    // ページ範囲解析
+    function parsePageRange(str, maxPages) {
+      if (!str) return null;
+      const ranges = str.split(',');
+      const pages = new Set();
+      for (let r of ranges) {
+        r = r.trim();
+        if (/^\d+$/.test(r)) {
+          const p = parseInt(r);
+          if (p >= 1 && p <= maxPages) pages.add(p - 1);
+        } else if (/^(\d+)-(\d+)$/.test(r)) {
+          let [_, start, end] = r.match(/^(\d+)-(\d+)$/);
+          start = parseInt(start);
+          end = parseInt(end);
+          for (let i = start; i <= end && i <= maxPages; i++) {
+            if (i >= 1) pages.add(i - 1);
+          }
+        }
+      }
+      return Array.from(pages).sort((a, b) => a - b);
+    }
+
+    // ドラッグ＆ドロップ
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      addFiles(e.dataTransfer.files);
+    });
+
+    // ファイル選択
+    selectFilesBtn.onclick = () => fileInput.click();
+    fileInput.onchange = () => {
+      addFiles(fileInput.files);
+      fileInput.value = '';
+    };
+
+    // 削除とページ範囲入力
+    fileList.addEventListener('click', e => {
+      if (e.target.classList.contains('removeBtn')) {
+        const idx = e.target.closest('li').dataset.index;
+        filesArray.splice(idx, 1);
+        renderFileList();
+      }
+    });
+
+    fileList.addEventListener('input', e => {
+      if (e.target.classList.contains('pageRange')) {
+        const idx = e.target.closest('li').dataset.index;
+        filesArray[idx].pageRange = e.target.value.trim();
+      }
+    });
+
+    // 並び替え
+    let dragSrcEl = null;
+    fileList.addEventListener('dragstart', e => {
+      dragSrcEl = e.target;
+    });
+
+    fileList.addEventListener('drop', e => {
+      e.preventDefault();
+      if (e.target.tagName === 'LI' && dragSrcEl) {
+        const fromIndex = dragSrcEl.dataset.index;
+        const toIndex = e.target.dataset.index;
+        if (fromIndex !== toIndex) {
+          const movedItem = filesArray.splice(fromIndex, 1)[0];
+          filesArray.splice(toIndex, 0, movedItem);
+          renderFileList();
+        }
+      }
+    });
+
+    // PDF結合処理
+    mergeBtn.onclick = async () => {
+      if (filesArray.length < 2) {
+        alert('2つ以上のPDFを選択してください。');
+        return;
+      }
+
+      resultDiv.innerHTML = '結合処理中...';
+
+      try {
+        const mergedPdf = await PDFLib.PDFDocument.create();
+
+        for (const fObj of filesArray) {
+          const buffer = await fObj.file.arrayBuffer();
+          const pdf = await PDFLib.PDFDocument.load(buffer);
+          const pageCount = pdf.getPageCount();
+
+          const pageIndices = parsePageRange(fObj.pageRange, pageCount) ?? [...Array(pageCount).keys()];
+          const copied = await mergedPdf.copyPages(pdf, pageIndices);
+          copied.forEach(page => mergedPdf.addPage(page));
+        }
+
+        const pdfBytes = await mergedPdf.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+
+        resultDiv.innerHTML = `
+          <a href="${url}" download="merged.pdf">📥 結合PDFをダウンロード</a><br/>
+          <iframe src="${url}"></iframe>
+        `;
+      } catch (err) {
+        alert('エラーが発生しました。');
+        console.error(err);
+        resultDiv.textContent = 'エラーが発生しました。詳細はコンソールを確認してください。';
+      }
+    };
+
+    // リセット
+    resetBtn.onclick = () => {
+      filesArray = [];
+      renderFileList();
+      resultDiv.innerHTML = '';
+    };
+  </script>
 </body>
 </html>
