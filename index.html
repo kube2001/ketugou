@@ -3,277 +3,238 @@
 <head>
   <meta charset="UTF-8" />
   <title>高機能PDF結合ツール</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      background: #f4f6f8;
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-      color: #333;
-    }
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+    #dropZone { border: 2px dashed #ccc; padding: 20px; text-align: center; color: #888; margin-bottom: 20px; }
+    #fileList { list-style: none; padding: 0; margin: 0 0 20px 0; }
+    #fileList li { padding: 8px; margin-bottom: 6px; border: 1px solid #ccc; background: #fafafa; display: flex; align-items: center; justify-content: space-between; cursor: move; }
+    #fileList li input { width: 100px; margin-left: 10px; }
+    button { margin-top: 10px; }
 
-    h2 {
-      text-align: center;
-    }
-
-    #dropZone {
-      border: 2px dashed #aaa;
-      border-radius: 8px;
-      padding: 30px;
-      text-align: center;
-      background: #fff;
-      color: #666;
-      margin-bottom: 20px;
-      transition: border-color 0.3s;
-    }
-
-    #dropZone.dragover {
-      border-color: #007bff;
-      background: #e9f5ff;
-    }
-
-    button {
-      background: #007bff;
-      color: #fff;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      margin: 10px 5px 20px 0;
-      transition: background 0.3s;
-    }
-
-    button:hover {
-      background: #0056b3;
-    }
-
-    #fileList {
-      list-style: none;
-      padding: 0;
-      margin-bottom: 20px;
-    }
-
-    #fileList li {
-      background: #fff;
-      padding: 10px;
-      margin-bottom: 8px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: move;
-    }
-
-    #fileList li input {
-      margin-left: 10px;
-      padding: 4px;
-    }
-
-    .removeBtn {
-      background: #dc3545;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .removeBtn:hover {
-      background: #a71d2a;
-    }
-
+    /* CLS対策：結果表示部分にあらかじめ高さを予約 */
     #result {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.05);
+      min-height: 520px; /* iframe高さ500 + 余白20 */
+      transition: all 0.3s ease;
+      margin-top: 20px;
     }
 
-    iframe {
+    /* iframeは初期非表示 */
+    #result iframe {
       width: 100%;
       height: 500px;
+      display: none;
       border: 1px solid #ccc;
-      border-radius: 4px;
+      margin-top: 10px;
+    }
+
+    #result a {
+      display: none;
+      margin-bottom: 10px;
+      font-size: 1.2em;
+      text-decoration: none;
+      color: #007bff;
+    }
+    #result a:hover {
+      text-decoration: underline;
     }
   </style>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 </head>
 <body>
 
-  <h2>高機能PDF結合ツール</h2>
+<h2>高機能PDF結合ツール</h2>
 
-  <div id="dropZone">ここにPDFファイルをドラッグ＆ドロップ、または下のボタンで選択</div>
-  <input type="file" id="fileInput" accept="application/pdf" multiple hidden />
-  <button id="selectFilesBtn">ファイルを選択</button>
-  <button id="mergeBtn">PDFを結合する</button>
-  <button id="resetBtn">リセット</button>
+<div id="dropZone">ここにPDFファイルをドラッグ＆ドロップ、または下のボタンで選択</div>
+<input type="file" id="fileInput" accept="application/pdf" multiple style="display:none" />
+<button id="selectFilesBtn">ファイルを選択</button>
+<button id="mergeBtn">PDFを結合する</button>
+<button id="resetBtn">リセット</button>
 
-  <ul id="fileList"></ul>
-  <div id="result"></div>
+<ul id="fileList"></ul>
 
-  <script>
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const selectFilesBtn = document.getElementById('selectFilesBtn');
-    const mergeBtn = document.getElementById('mergeBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const fileList = document.getElementById('fileList');
-    const resultDiv = document.getElementById('result');
+<div id="result">
+  <a id="downloadLink" href="#" download="merged.pdf">📥 結合PDFをダウンロード</a>
+  <iframe id="previewFrame" src=""></iframe>
+</div>
 
-    let filesArray = [];
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const selectFilesBtn = document.getElementById('selectFilesBtn');
+  const mergeBtn = document.getElementById('mergeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const fileList = document.getElementById('fileList');
+  const resultDiv = document.getElementById('result');
+  const downloadLink = document.getElementById('downloadLink');
+  const previewFrame = document.getElementById('previewFrame');
 
-    // ファイルリストを画面に表示
-    function renderFileList() {
-      fileList.innerHTML = '';
-      filesArray.forEach((fileObj, index) => {
-        const li = document.createElement('li');
-        li.draggable = true;
-        li.dataset.index = index;
-        li.innerHTML = `
-          <span>${fileObj.file.name}</span>
-          <label>ページ範囲 <input type="text" class="pageRange" placeholder="例: 1-3" /></label>
-          <button class="removeBtn">×</button>
-        `;
-        fileList.appendChild(li);
-      });
+  let filesArray = [];
+
+  function renderFileList() {
+    fileList.innerHTML = '';
+    filesArray.forEach((fileObj, index) => {
+      const li = document.createElement('li');
+      li.draggable = true;
+      li.dataset.index = index;
+
+      li.innerHTML = `
+        <span>${fileObj.file.name}</span>
+        <label>ページ範囲 (例: 1-3): <input type="text" class="pageRange" value="" placeholder="全部"/></label>
+        <button class="removeBtn">×</button>
+      `;
+
+      fileList.appendChild(li);
+    });
+  }
+
+  // ファイル追加処理
+  function addFiles(newFiles) {
+    for (const file of newFiles) {
+      if(file.type !== 'application/pdf') continue;
+      filesArray.push({ file: file, pageRange: null });
     }
+    renderFileList();
+  }
 
-    // ファイル追加
-    function addFiles(newFiles) {
-      for (const file of newFiles) {
-        if (file.type === 'application/pdf') {
-          filesArray.push({ file, pageRange: null });
-        }
-      }
+  // ドラッグ＆ドロップ
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#00aaff';
+  });
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#ccc';
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#ccc';
+    addFiles(e.dataTransfer.files);
+  });
+
+  // ファイル選択ボタン
+  selectFilesBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    addFiles(fileInput.files);
+    fileInput.value = '';
+  });
+
+  // 削除ボタンとページ範囲入力反映
+  fileList.addEventListener('click', (e) => {
+    if(e.target.classList.contains('removeBtn')){
+      const idx = e.target.parentElement.dataset.index;
+      filesArray.splice(idx,1);
       renderFileList();
     }
-
-    // ページ範囲解析
-    function parsePageRange(str, maxPages) {
-      if (!str) return null;
-      const ranges = str.split(',');
-      const pages = new Set();
-      for (let r of ranges) {
-        r = r.trim();
-        if (/^\d+$/.test(r)) {
-          const p = parseInt(r);
-          if (p >= 1 && p <= maxPages) pages.add(p - 1);
-        } else if (/^(\d+)-(\d+)$/.test(r)) {
-          let [_, start, end] = r.match(/^(\d+)-(\d+)$/);
-          start = parseInt(start);
-          end = parseInt(end);
-          for (let i = start; i <= end && i <= maxPages; i++) {
-            if (i >= 1) pages.add(i - 1);
-          }
-        }
-      }
-      return Array.from(pages).sort((a, b) => a - b);
+  });
+  fileList.addEventListener('input', (e) => {
+    if(e.target.classList.contains('pageRange')){
+      const idx = e.target.parentElement.parentElement.dataset.index;
+      filesArray[idx].pageRange = e.target.value.trim();
     }
+  });
 
-    // ドラッグ＆ドロップ
-    dropZone.addEventListener('dragover', e => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      addFiles(e.dataTransfer.files);
-    });
-
-    // ファイル選択
-    selectFilesBtn.onclick = () => fileInput.click();
-    fileInput.onchange = () => {
-      addFiles(fileInput.files);
-      fileInput.value = '';
-    };
-
-    // 削除とページ範囲入力
-    fileList.addEventListener('click', e => {
-      if (e.target.classList.contains('removeBtn')) {
-        const idx = e.target.closest('li').dataset.index;
-        filesArray.splice(idx, 1);
+  // ドラッグで順序入れ替え
+  let dragSrcEl = null;
+  fileList.addEventListener('dragstart', (e) => {
+    dragSrcEl = e.target;
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  fileList.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+  fileList.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if(e.target.tagName === 'LI' && dragSrcEl) {
+      const fromIndex = dragSrcEl.dataset.index;
+      const toIndex = e.target.dataset.index;
+      if(fromIndex !== toIndex){
+        const movedItem = filesArray.splice(fromIndex, 1)[0];
+        filesArray.splice(toIndex, 0, movedItem);
         renderFileList();
       }
-    });
+    }
+  });
 
-    fileList.addEventListener('input', e => {
-      if (e.target.classList.contains('pageRange')) {
-        const idx = e.target.closest('li').dataset.index;
-        filesArray[idx].pageRange = e.target.value.trim();
-      }
-    });
-
-    // 並び替え
-    let dragSrcEl = null;
-    fileList.addEventListener('dragstart', e => {
-      dragSrcEl = e.target;
-    });
-
-    fileList.addEventListener('drop', e => {
-      e.preventDefault();
-      if (e.target.tagName === 'LI' && dragSrcEl) {
-        const fromIndex = dragSrcEl.dataset.index;
-        const toIndex = e.target.dataset.index;
-        if (fromIndex !== toIndex) {
-          const movedItem = filesArray.splice(fromIndex, 1)[0];
-          filesArray.splice(toIndex, 0, movedItem);
-          renderFileList();
+  // ページ範囲パース関数
+  function parsePageRange(str, maxPages) {
+    if(!str) return null; // 全ページ
+    const ranges = str.split(',');
+    const pages = new Set();
+    for(let r of ranges){
+      r = r.trim();
+      if(r.match(/^\d+$/)){
+        let p = parseInt(r);
+        if(p >= 1 && p <= maxPages) pages.add(p-1);
+      } else if(r.match(/^(\d+)-(\d+)$/)){
+        let [_, start, end] = r.match(/^(\d+)-(\d+)$/);
+        start = parseInt(start);
+        end = parseInt(end);
+        for(let i = start; i <= end && i <= maxPages; i++){
+          if(i >= 1) pages.add(i-1);
         }
       }
-    });
+    }
+    return Array.from(pages).sort((a,b)=>a-b);
+  }
 
-    // PDF結合処理
-    mergeBtn.onclick = async () => {
-      if (filesArray.length < 2) {
-        alert('2つ以上のPDFを選択してください。');
-        return;
+  // 結合ボタン
+  mergeBtn.addEventListener('click', async () => {
+    if(filesArray.length < 2){
+      alert('2つ以上のPDFファイルを選択してください。');
+      return;
+    }
+
+    // 処理中メッセージ表示、リンク・iframe非表示
+    downloadLink.style.display = 'none';
+    previewFrame.style.display = 'none';
+    resultDiv.textContent = '処理中…少々お待ちください。';
+
+    try {
+      const mergedPdf = await PDFLib.PDFDocument.create();
+
+      for(const fObj of filesArray){
+        const arrayBuffer = await fObj.file.arrayBuffer();
+        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+        const totalPages = pdfDoc.getPageCount();
+
+        const pageIndices = parsePageRange(fObj.pageRange, totalPages) ?? [...Array(totalPages).keys()];
+
+        const copiedPages = await mergedPdf.copyPages(pdfDoc, pageIndices);
+        copiedPages.forEach(page => mergedPdf.addPage(page));
       }
 
-      resultDiv.innerHTML = '結合処理中...';
+      const mergedPdfBytes = await mergedPdf.save();
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
 
-      try {
-        const mergedPdf = await PDFLib.PDFDocument.create();
+      // 結果表示をクリアし、リンクとiframeに設定＆表示
+      resultDiv.textContent = '';
+      downloadLink.href = url;
+      downloadLink.style.display = 'inline-block';
 
-        for (const fObj of filesArray) {
-          const buffer = await fObj.file.arrayBuffer();
-          const pdf = await PDFLib.PDFDocument.load(buffer);
-          const pageCount = pdf.getPageCount();
+      previewFrame.src = url;
+      previewFrame.style.display = 'block';
 
-          const pageIndices = parsePageRange(fObj.pageRange, pageCount) ?? [...Array(pageCount).keys()];
-          const copied = await mergedPdf.copyPages(pdf, pageIndices);
-          copied.forEach(page => mergedPdf.addPage(page));
-        }
+      resultDiv.appendChild(downloadLink);
+      resultDiv.appendChild(previewFrame);
 
-        const pdfBytes = await mergedPdf.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
+    } catch (e) {
+      alert('エラーが発生しました。');
+      console.error(e);
+      resultDiv.textContent = 'エラーが発生しました。詳細はコンソールを確認してください。';
+    }
+  });
 
-        resultDiv.innerHTML = `
-          <a href="${url}" download="merged.pdf">📥 結合PDFをダウンロード</a><br/>
-          <iframe src="${url}"></iframe>
-        `;
-      } catch (err) {
-        alert('エラーが発生しました。');
-        console.error(err);
-        resultDiv.textContent = 'エラーが発生しました。詳細はコンソールを確認してください。';
-      }
-    };
+  // リセットボタン
+  resetBtn.addEventListener('click', () => {
+    filesArray = [];
+    renderFileList();
+    resultDiv.textContent = '';
+    downloadLink.style.display = 'none';
+    previewFrame.style.display = 'none';
+    previewFrame.src = '';
+  });
+</script>
 
-    // リセット
-    resetBtn.onclick = () => {
-      filesArray = [];
-      renderFileList();
-      resultDiv.innerHTML = '';
-    };
-  </script>
 </body>
 </html>
